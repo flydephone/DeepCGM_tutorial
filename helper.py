@@ -309,48 +309,6 @@ def rmse_table(pretrained_predictions):
 
 
 # ---------------------------------------------------------------------------
-# DeepCGM architecture display (rate() + SVG links from upstream repo)
-# ---------------------------------------------------------------------------
-RATE_SOURCE = '''def rate(self, C_cell, x, C):
-    # ---- 1. Gate calculations (one matrix per sub-process) ----------------
-    C_assimilate_ratio   = self.C_assimilate_gate  (x, self.C_i_assimilate_prior,    self.C_o_assimilate_prior)
-    C_partitation_mat    = self.C_partitation_gate (x, self.C_i_partitation_prior,   self.C_o_partitation_prior)
-    C_growResp_mat       = self.C_growResp_gate    (x, self.C_i_growResp_prior,      self.C_o_growResp_prior)
-    C_mainResp_mat       = self.C_mainResp_gate    (x, self.C_i_mainResp_prior,      self.C_o_mainResp_prior)
-    C_redistribution_mat = self.C_redistribution_gate(x, self.C_i_redistribution_prior, self.C_o_redistribution_prior)
-
-    # ---- 2. Mass-conserving carbon flow (one step) ------------------------
-    C_in       = C_assimilate_ratio.squeeze(-2) * C                                # photosynthesis: how much of C_potential is actually fixed
-    C_mainResp = torch.mul(C_cell.unsqueeze(-2), C_mainResp_mat).squeeze(-2)       # maintenance respiration: each pool pays a cost
-    C_net      = C_in - C_mainResp.sum(-1, keepdim=True)                           # net assimilation available for growth
-    C_grow     = torch.matmul(C_net.unsqueeze(-2), C_partitation_mat).squeeze(-2)  # partition net carbon to each organ-cell
-    C_growResp = C_grow.unsqueeze(-2) * C_growResp_mat                             # growth respiration: each new gram costs
-    C_grow_net = C_grow.unsqueeze(-2) - C_growResp                                 # net growth per cell
-    C_cell     = C_cell + C_grow_net.squeeze(-2)                                   # accumulate into the carbon pools
-    C_cell     = torch.matmul(C_cell.unsqueeze(-2), C_redistribution_mat).squeeze(-2)  # redistribute between leaf/stem/storage
-
-    return C_cell, C_assimilate_ratio, C_partitation_mat, C_growResp_mat, C_mainResp_mat, C_redistribution_mat, C_net
-'''
-
-
-def show_deepcgm_architecture():
-    """Display the rate() function source plus links to the upstream architecture SVGs."""
-    from IPython.display import Code, display, Markdown
-    display(Markdown("**Code - one time step of DeepCGM (`rate()` in `models_aux/DeepCGM.py`):**"))
-    display(Code(RATE_SOURCE, language='python'))
-    display(Markdown(
-        "**Diagram 1 - overall architecture** "
-        "([open on GitHub](https://github.com/WUR-AI/DeepCGM/blob/main/figure/DeepCGM.svg)):\n\n"
-        "![overall](https://raw.githubusercontent.com/WUR-AI/DeepCGM/main/figure/DeepCGM.svg)"
-    ))
-    display(Markdown(
-        "**Diagram 2 - detailed sub-processes** "
-        "([open on GitHub](https://github.com/WUR-AI/DeepCGM/blob/main/figure/DeepCGM_detail.svg)):\n\n"
-        "![detail](https://raw.githubusercontent.com/WUR-AI/DeepCGM/main/figure/DeepCGM_detail.svg)"
-    ))
-
-
-# ---------------------------------------------------------------------------
 # Training utilities (used by the bonus training-evolution section)
 # ---------------------------------------------------------------------------
 def train_loop(model, epochs, lr, tra_loader, tes_loader,
