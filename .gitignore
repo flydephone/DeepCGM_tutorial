@@ -2,12 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
-build/
-dist/
-*.egg-info/
-*.egg
 
 # Virtual envs
 .venv/
@@ -29,5 +24,9 @@ env/
 Thumbs.db
 desktop.ini
 
-# Local notebook-output snapshots (regenerate by re-running the bonus section)
-figure/training_evolution_*.png
+# Generated at run-time by the bootstrap cell of the notebook
+DeepCGM/
+figure/
+
+# Notebook generator (not for students)
+build_notebook.py
