@@ -58,10 +58,21 @@ setup_seed = utils.setup_seed   # re-export for convenience
 # Data loading / splitting
 # ---------------------------------------------------------------------------
 def load_dataset(tra_year='2018'):
-    """Return file lists (ory, par, wea_fer, spa, int) and the max/min normaliser tuple."""
+    """Return file lists (ory, par, wea_fer, spa, int) and the max/min normaliser tuple.
+
+    NOTE: utils.dataset_loader uses glob.glob, whose ordering follows os.listdir
+    and is therefore *platform dependent* (Windows = alphabetical, Linux = arbitrary).
+    We sort the lists here so the train/test split is identical on every machine
+    (Windows / macOS / Colab Linux), which is essential for reproducible results.
+    """
     rea_ory, rea_par, rea_wea_fer, rea_spa, rea_int = utils.dataset_loader(
         data_source=f'format_dataset/real_{tra_year}'
     )
+    rea_ory     = np.array(sorted(rea_ory))
+    rea_par     = np.array(sorted(rea_par))
+    rea_wea_fer = np.array(sorted(rea_wea_fer))
+    rea_spa     = np.array(sorted(rea_spa))
+    rea_int     = np.array(sorted(rea_int))
     max_min = utils.pickle_load('format_dataset/max_min.pickle')
     return rea_ory, rea_par, rea_wea_fer, rea_spa, rea_int, max_min
 
@@ -238,8 +249,14 @@ def show_task_result(tag, pretrained_predictions, title=None, sample_loc=-1):
 # Pretrained model loading
 # ---------------------------------------------------------------------------
 def load_best_pretrained(model_dir, model_cls, input_mask, tra_year='2018', seed=0):
-    """Pick the SEED-th robust run for this config and return its model + filename."""
-    runs = [r for r in os.listdir(f'model_weight/{model_dir}/') if tra_year in r]
+    """Pick the SEED-th robust run for this config and return its model + filename.
+
+    NOTE: os.listdir() ordering is platform dependent; we sort to ensure that
+    `runs[seed]` picks the same robust run on every machine (Windows / Colab).
+    The run sub-directories are named like `2018_2018_<seed>_<timestamp>`, so
+    sorting alphabetically also sorts by the embedded seed number.
+    """
+    runs = sorted(r for r in os.listdir(f'model_weight/{model_dir}/') if tra_year in r)
     run  = runs[seed]
     path = f'model_weight/{model_dir}/{run}'
     files = os.listdir(path)
