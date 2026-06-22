@@ -345,6 +345,45 @@ def train_loop(model, epochs, lr, tra_loader, tes_loader,
     return np.array(log)
 
 
+def hands_on_training(tra_loader, tes_loader, epochs=20, lr=0.1, seed=0):
+    """Run a short DeepCGM+IM+CG training so students can *feel* how slow training is.
+
+    Prints the configuration up front, shows a tqdm bar with ETA during training,
+    and then prints a summary with an extrapolation to the paper's full setup
+    (700 epochs x 50 robust runs x 6 configurations).  Returns (model, log).
+    """
+    utils.setup_seed(seed)
+    model = DeepCGM(input_mask=True).to(device)
+
+    print(f"Configuration : DeepCGM+IM+CG (input_mask=True, convergence_loss=True)")
+    print(f"Device        : {device}  ({'GPU' if str(device).startswith('cuda') else 'CPU'})")
+    print(f"Epochs        : {epochs}")
+    print(f"Learning rate : {lr}")
+    print("Watch the tqdm bar below - the ETA tells you how long the wait is going to be ...")
+    print()
+
+    t_start = time.time()
+    log = train_loop(model, epochs=epochs, lr=lr,
+                     tra_loader=tra_loader, tes_loader=tes_loader,
+                     convergence_loss=True, target='spa', tag='hands-on')
+    t_elapsed = time.time() - t_start
+    per_epoch = t_elapsed / epochs
+
+    print()
+    print(f"=== Training summary ===")
+    print(f"Wall time for {epochs} epochs : {t_elapsed:>7.1f} s")
+    print(f"Per epoch                  : {per_epoch*1000:>7.0f} ms")
+    print()
+    print(f"Extrapolated cost of the paper's full setup:")
+    print(f"  700 epochs                  : {per_epoch * 700:>7.0f} s  (~{per_epoch * 700 / 60:.1f} min)")
+    print(f"  700 epochs x 50 robust runs : {per_epoch * 700 * 50 / 3600:>7.1f} hours")
+    print(f"  ...x 6 configurations       : {per_epoch * 700 * 50 * 6 / 3600:>7.1f} hours")
+    print()
+    print("This is why Tasks 1-2.3 above load pretrained weights instead of training from scratch,")
+    print("and why section 6.2 below shows a pre-rendered GIF rather than re-running 700 epochs here.")
+    return model, log
+
+
 def train_with_snapshots(model_cls, input_mask, lr, convergence_loss, tag,
                          total_epochs, snap_every, tra_loader, tes_loader, max_min, seed=0):
     """Train and store test-set predictions every `snap_every` epochs (used for the GIF)."""
