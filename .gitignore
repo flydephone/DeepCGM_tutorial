@@ -26,7 +26,12 @@ desktop.ini
 
 # Generated at run-time by the bootstrap cell of the notebook
 DeepCGM/
-figure/
+
+# Ignore generated figures, except the pre-rendered training-evolution GIF
+# that Tutorial_DeepCGM_v2.ipynb (section 6.2) loads instead of retraining.
+figure/*
+!figure/training_evolution.gif
 
 # Notebook generator (not for students)
 build_notebook.py
+build_notebook_v2.py
