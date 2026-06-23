@@ -15,6 +15,7 @@ The upstream DeepCGM code: https://github.com/WUR-AI/DeepCGM
 import os
 import time
 import glob
+import urllib.request
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,23 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+
+
+def _ensure_upstream(git_url="https://github.com/WUR-AI/DeepCGM.git"):
+    """Clone the upstream DeepCGM repo (code + data + weights) on first run and chdir in.
+
+    No-op when the upstream code (models_aux/) is already on disk, so it is safe to
+    import helper from inside an existing clone or after the first Colab run. This is
+    what lets the notebook's setup cell be a two-step "download helper.py, import helper".
+    """
+    if not os.path.isdir('models_aux'):
+        if not os.path.isdir('DeepCGM'):
+            assert os.system(f"git clone --depth 1 {git_url}") == 0, \
+                "git clone failed - is git installed and do you have internet access?"
+        os.chdir('DeepCGM')
+
+
+_ensure_upstream()
 
 import utils
 from models_aux.MyDataset    import MyDataSet
@@ -379,7 +397,7 @@ def hands_on_training(tra_loader, tes_loader, epochs=20, lr=0.1, seed=0):
     print(f"  700 epochs x 50 robust runs : {per_epoch * 700 * 50 / 3600:>7.1f} hours")
     print(f"  ...x 6 configurations       : {per_epoch * 700 * 50 * 6 / 3600:>7.1f} hours")
     print()
-    print("This is why Tasks 1-2.3 above load pretrained weights instead of training from scratch,")
+    print("This is why Tasks 1-2.2 above load pretrained weights instead of training from scratch,")
     print("and why section 6.2 below shows a pre-rendered GIF rather than re-running 700 epochs here.")
     return model, log
 
@@ -453,3 +471,16 @@ def make_evolution_gif(lstm_snaps, dcgm_snaps, gif_path='figure/training_evoluti
     ani.save(gif_path, writer=animation.PillowWriter(fps=fps))
     plt.close(fig)
     return N_FRAMES
+
+
+def show_evolution_gif(gif_path='figure/training_evolution.gif',
+                       url='https://raw.githubusercontent.com/flydephone/DeepCGM_tutorial/main/figure/training_evolution.gif'):
+    """Download the pre-rendered 700-epoch training-evolution GIF if missing, then
+    return it as an IPython Image so the notebook can display it inline with a one-liner."""
+    utils.find_or_make('figure')
+    if not os.path.exists(gif_path):
+        print("Downloading pre-rendered 700-epoch GIF ...")
+        urllib.request.urlretrieve(url, gif_path)
+    print(f"GIF on disk: {gif_path}  ({os.path.getsize(gif_path)/1024:.0f} KB)")
+    from IPython.display import Image
+    return Image(gif_path)
