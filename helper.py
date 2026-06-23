@@ -348,17 +348,33 @@ def rmse_table(pretrained_predictions):
 # ---------------------------------------------------------------------------
 def train_loop(model, epochs, lr, tra_loader, tes_loader,
                convergence_loss=False, target='spa', tag=""):
-    """Generic training loop. Returns a (epoch, tra_spa, tra_int, tra_cg, tes_spa, ...) log array."""
+    """Generic training loop. Returns a (epoch, tra_spa, tra_int, tra_cg, tes_spa, ...) log array.
+
+    Progress is shown as a single, in-place updating line via IPython.display.clear_output:
+    it overwrites every epoch live (one line with a running ETA) and, crucially, leaves only
+    that final line in the *saved* notebook instead of one row per epoch.
+    """
+    try:
+        from IPython.display import clear_output
+    except ImportError:
+        clear_output = None
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     log = []; t0 = time.time()
-    pbar = tqdm(range(epochs), desc=f"[{tag}]", unit="ep", leave=True)
-    for e in pbar:
+    for e in range(epochs):
         tra = run_one_epoch(model, tra_loader, 'tra', optimizer, convergence_loss, target)
         tes = run_one_epoch(model, tes_loader, 'tes')
         log.append((e, *tra, *tes))
-        pbar.set_postfix(tra_spa=f"{tra[0]:.4f}",
-                         tes_spa=f"{tes[0]:.4f}",
-                         cg=f"{tra[2]:.4f}")
+        elapsed = time.time() - t0
+        eta = elapsed / (e + 1) * (epochs - e - 1)
+        line = (f"[{tag}] epoch {e+1:>3d}/{epochs}  tra_spa={tra[0]:.4f}  "
+                f"tes_spa={tes[0]:.4f}  cg={tra[2]:.4f}  elapsed {elapsed:4.1f}s  eta {eta:4.1f}s")
+        if clear_output is not None:
+            clear_output(wait=True)
+            print(line)
+        else:
+            print('\r' + line, end='', flush=True)
+    if clear_output is None:
+        print()
     print(f"  [{tag}] {epochs} epochs done in {time.time()-t0:.1f}s, final tes_spa={tes[0]:.4f}")
     return np.array(log)
 
@@ -377,7 +393,7 @@ def hands_on_training(tra_loader, tes_loader, epochs=20, lr=0.1, seed=0):
     print(f"Device        : {device}  ({'GPU' if str(device).startswith('cuda') else 'CPU'})")
     print(f"Epochs        : {epochs}")
     print(f"Learning rate : {lr}")
-    print("Watch the tqdm bar below - the ETA tells you how long the wait is going to be ...")
+    print("Watch the progress line below - the ETA tells you how long the wait is going to be ...")
     print()
 
     t_start = time.time()
@@ -388,14 +404,9 @@ def hands_on_training(tra_loader, tes_loader, epochs=20, lr=0.1, seed=0):
     per_epoch = t_elapsed / epochs
 
     print()
-    print(f"=== Training summary ===")
+    print(f"=== Training summary: DeepCGM+IM+CG, {epochs} epochs, lr={lr}, {device} ===")
     print(f"Wall time for {epochs} epochs : {t_elapsed:>7.1f} s")
     print(f"Per epoch                  : {per_epoch*1000:>7.0f} ms")
-    print()
-    print(f"Extrapolated cost of the paper's full setup:")
-    print(f"  700 epochs                  : {per_epoch * 700:>7.0f} s  (~{per_epoch * 700 / 60:.1f} min)")
-    print(f"  700 epochs x 50 robust runs : {per_epoch * 700 * 50 / 3600:>7.1f} hours")
-    print(f"  ...x 6 configurations       : {per_epoch * 700 * 50 * 6 / 3600:>7.1f} hours")
     print()
     print("This is why Tasks 1-2.2 above load pretrained weights instead of training from scratch,")
     print("and why section 6.2 below shows a pre-rendered GIF rather than re-running 700 epochs here.")
