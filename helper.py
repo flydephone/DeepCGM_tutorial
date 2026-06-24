@@ -440,7 +440,7 @@ def rmse_train_test_table(pred_tra, pred_tes, tags=None):
 # ---------------------------------------------------------------------------
 def train_loop(model, epochs, lr, tra_loader, tes_loader,
                convergence_loss=False, target='spa', tag=""):
-    """Generic training loop. Returns a (epoch, tra_spa, tra_int, tra_cg, tes_spa, ...) log array.
+    """Generic training loop. Returns a (epoch, training_loss, tra_int, tra_cg, testing_loss, ...) log array.
 
     Progress is shown as a single, in-place updating line via IPython.display.clear_output:
     it overwrites every epoch live (one line with a running ETA) and, crucially, leaves only
@@ -458,8 +458,8 @@ def train_loop(model, epochs, lr, tra_loader, tes_loader,
         log.append((e, *tra, *tes))
         elapsed = time.time() - t0
         eta = elapsed / (e + 1) * (epochs - e - 1)
-        line = (f"[{tag}] epoch {e+1:>3d}/{epochs}  tra_spa={tra[0]:.4f}  "
-                f"tes_spa={tes[0]:.4f}  cg={tra[2]:.4f}  elapsed {elapsed:4.1f}s  eta {eta:4.1f}s")
+        line = (f"[{tag}] epoch {e+1:>3d}/{epochs}  training_loss={tra[0]:.4f}  "
+                f"testing_loss={tes[0]:.4f}  cg={tra[2]:.4f}  elapsed {elapsed:4.1f}s  eta {eta:4.1f}s")
         if clear_output is not None:
             clear_output(wait=True)
             print(line)
@@ -467,7 +467,7 @@ def train_loop(model, epochs, lr, tra_loader, tes_loader,
             print('\r' + line, end='', flush=True)
     if clear_output is None:
         print()
-    print(f"  [{tag}] {epochs} epochs done in {time.time()-t0:.1f}s, final tes_spa={tes[0]:.4f}")
+    print(f"  [{tag}] {epochs} epochs done in {time.time()-t0:.1f}s, final testing_loss={tes[0]:.4f}")
     return np.array(log)
 
 
@@ -555,7 +555,7 @@ def train_with_snapshots(model_cls, input_mask, lr, convergence_loss, tag,
             pre, spa, ory, _, wea = predict(m, tes_loader, max_min)
             snapshots.append((e, pre, spa, ory, wea))
         tra = run_one_epoch(m, tra_loader, 'tra', optimizer, convergence_loss, target='spa')
-        pbar.set_postfix(tra_spa=f"{tra[0]:.4f}")
+        pbar.set_postfix(training_loss=f"{tra[0]:.4f}")
     pre, spa, ory, _, wea = predict(m, tes_loader, max_min)
     snapshots.append((total_epochs, pre, spa, ory, wea))
     return snapshots
