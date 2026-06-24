@@ -297,16 +297,25 @@ def load_best_pretrained(model_dir, model_cls, input_mask, tra_year='2018', seed
     return m, best
 
 
-def load_all_pretrained(loader, max_min, tra_year='2018', seed=0, tags=None):
-    """Load each configuration (filtered to `tags` if given) and cache its predictions on `loader`."""
+def load_all_pretrained(loader, max_min, tra_year='2018', seed=0, tags=None, verbose=True):
+    """Load each configuration (filtered to `tags` if given) and cache its predictions on `loader`.
+
+    `verbose=False` suppresses the per-model tqdm progress bar and the final completion
+    print - useful when the function is called several times in a row (e.g. once on
+    the training loader and once on the test loader) and the cell would otherwise
+    print the same progress block twice.
+    """
     models = [m for m in MODEL_DIRS if tags is None or m[0] in tags]
     cached = {}
-    for tag, dir_, cls, im in tqdm(models,
-                                    desc=f"Loading {len(models)} pretrained 700-epoch models",
-                                    unit="model"):
+    iterator = tqdm(models,
+                    desc=f"Loading {len(models)} pretrained 700-epoch models",
+                    unit="model",
+                    disable=not verbose)
+    for tag, dir_, cls, im in iterator:
         m, _ = load_best_pretrained(dir_, cls, im, tra_year, seed)
         cached[tag] = predict(m, loader, max_min)
-    print(f"{len(models)} pretrained 700-epoch models loaded and cached.")
+    if verbose:
+        print(f"{len(models)} pretrained 700-epoch models loaded and cached.")
     return cached
 
 
