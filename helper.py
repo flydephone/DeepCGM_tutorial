@@ -59,6 +59,18 @@ OBS_COL_NAME = ['TIME'] + OBS_NAME
 OBS_LOC      = [OBS_COL_NAME.index(n) for n in OBS_NAME]
 LOSS_WEIGHTS = [1, 1, 5, 2, 2, 1, 2]
 
+# Reader-facing full names for the plot/table labels (the abbreviations above stay as the
+# internal data-column identifiers).
+VAR_FULLNAME = {
+    'DVS':   'Development stage',
+    'PAI':   'Plant Area Index',
+    'WLV':   'Leaf biomass',
+    'WST':   'Stem biomass',
+    'WSO':   'Storage-organ biomass',
+    'WAGT':  'Above-ground biomass',
+    'WRR14': 'Yield',
+}
+
 # (display name, weight subdir, model class, input_mask flag)
 MODEL_DIRS = [
     ("LSTM",          "NaiveLSTM_spa_scratch",     NaiveLSTM, False),
@@ -151,7 +163,7 @@ def show_sample_overview(sample_idx, rea_ory, rea_spa, rea_wea_fer, max_min):
         ax.plot(day, ory_un[:, j], color='gray', label='ORYZA2000')
         valid = ~np.isnan(obs_un[:, j])
         ax.scatter(day[valid], obs_un[valid, j], color='black', s=18, label='observation')
-        ax.set_title(name); ax.set_xlabel("DOY")
+        ax.set_title(VAR_FULLNAME.get(name, name), fontsize=9); ax.set_xlabel("DOY")
     for ax in axes.flat: ax.tick_params(labelsize=8)
     axes[1, 0].legend(fontsize=8)
     plt.suptitle(f"Sample #{sample_idx} - one growing season: weather + observations", y=1.02)
@@ -239,7 +251,7 @@ def plot_one_sample(pre, spa, ory, wea, sample_loc=-1, title=""):
         ax.plot(day[m_ory],    ory_v[m_ory], color='gray', label='ORYZA2000')
         ax.scatter(day[m_obs], obs_v[m_obs], s=12, color='black', label='obs')
         ax.plot(day[m_ory],    pre_v[m_ory], color='red', linewidth=1.2, label='model')
-        ax.set_title(name.replace('WRR14', 'Yield')); ax.set_xlabel('DOY')
+        ax.set_title(VAR_FULLNAME.get(name, name), fontsize=8); ax.set_xlabel('DOY')
     axs[0].legend(fontsize=7, loc='upper left')
     plt.suptitle(title, y=1.05); plt.tight_layout(); plt.show()
 
@@ -254,13 +266,10 @@ def rmse_per_var(pre, spa):
 
 
 def show_task_result(tag, pretrained_predictions, title=None, sample_loc=-1):
-    """Render the standard 'one sample plot + per-variable RMSE' block for a task."""
+    """Render the one-sample plot for a task (qualitative only; RMSE is shown solely in Part 5)."""
     pre, spa, ory, int_, wea = pretrained_predictions[tag]
     plot_one_sample(pre, spa, ory, wea, sample_loc=sample_loc,
                     title=title or f"Task: {tag}")
-    print("RMSE for each variable (lower is better):")
-    for k, v in rmse_per_var(pre, spa).items():
-        print(f"  {k:6s} : {v:10.3f}")
 
 
 # ---------------------------------------------------------------------------
@@ -288,30 +297,32 @@ def load_best_pretrained(model_dir, model_cls, input_mask, tra_year='2018', seed
     return m, best
 
 
-def load_all_pretrained(tes_loader, max_min, tra_year='2018', seed=0):
-    """Load every configuration in MODEL_DIRS and cache its test-set predictions."""
+def load_all_pretrained(loader, max_min, tra_year='2018', seed=0, tags=None):
+    """Load each configuration (filtered to `tags` if given) and cache its predictions on `loader`."""
+    models = [m for m in MODEL_DIRS if tags is None or m[0] in tags]
     cached = {}
-    for tag, dir_, cls, im in tqdm(MODEL_DIRS,
-                                    desc="Loading 6 pretrained 700-epoch models",
+    for tag, dir_, cls, im in tqdm(models,
+                                    desc=f"Loading {len(models)} pretrained 700-epoch models",
                                     unit="model"):
         m, _ = load_best_pretrained(dir_, cls, im, tra_year, seed)
-        cached[tag] = predict(m, tes_loader, max_min)
-    print("All six 700-epoch pretrained models loaded and cached.")
+        cached[tag] = predict(m, loader, max_min)
+    print(f"{len(models)} pretrained 700-epoch models loaded and cached.")
     return cached
 
 
 # ---------------------------------------------------------------------------
 # Comprehensive comparison (Part 6 of the notebook)
 # ---------------------------------------------------------------------------
-def compare_models(pretrained_predictions, sample_loc=-1):
-    """6-row x 6-column grid: rows = variables, columns = configurations."""
+def compare_models(pretrained_predictions, sample_loc=-1, tags=None, title=None):
+    """Grid: rows = variables, columns = configurations (filtered to `tags` if given)."""
     var_to_plot = ['PAI', 'WLV', 'WST', 'WSO', 'WAGT', 'WRR14']
     max_vals    = [8, 6000, 6000, 8000, 14000, 10000]
-    fig, axs = plt.subplots(len(var_to_plot), len(MODEL_DIRS),
-                            figsize=(13, 9), dpi=100)
+    models = [m for m in MODEL_DIRS if tags is None or m[0] in tags]
+    fig, axs = plt.subplots(len(var_to_plot), len(models),
+                            figsize=(2.2 * len(models), 9), dpi=100)
     for i, vname in enumerate(var_to_plot):
         j_var = OBS_NAME.index(vname)
-        for j, (tag, *_) in enumerate(MODEL_DIRS):
+        for j, (tag, *_) in enumerate(models):
             pre, spa, ory, int_, wea = pretrained_predictions[tag]
             ax = axs[i, j]
             day   = wea[sample_loc, :, 0]
@@ -325,20 +336,92 @@ def compare_models(pretrained_predictions, sample_loc=-1):
             ax.plot(day[m_ory],    pre_v[m_ory], color='red', lw=1)
             ax.set_ylim(bottom=0, top=max_vals[i])
             if i == 0: ax.set_title(tag, fontsize=9)
-            if j == 0: ax.set_ylabel(vname.replace('WRR14', 'Yield'), fontsize=9)
+            if j == 0: ax.set_ylabel(VAR_FULLNAME.get(vname, vname), fontsize=9)
             ax.tick_params(labelsize=7)
-    plt.suptitle("Model comparison on the same test sample (700-epoch pretrained)", y=1.01)
+    plt.suptitle(title or "Model comparison on the same sample (700-epoch pretrained)", y=1.01)
     plt.tight_layout(); plt.show()
 
 
-def rmse_table(pretrained_predictions):
-    """Pandas DataFrame of per-variable RMSE for every configuration."""
+def compare_train_test(pred_tra, pred_tes, tags=None, sample_loc=-1):
+    """One grid: training models (left columns) | empty spacer | test models (right columns),
+    with a 'Training set' / 'Test set' header above each group of model columns."""
+    var_to_plot = ['PAI', 'WLV', 'WST', 'WSO', 'WAGT', 'WRR14']
+    max_vals    = [8, 6000, 6000, 8000, 14000, 10000]
+    models = [m for m in MODEL_DIRS if tags is None or m[0] in tags]
+    n = len(models)
+    ncol   = n + 1 + n          # train | spacer | test
+    spacer = n                  # index of the empty middle column
+    ratios = [1] * n + [0.5] + [1] * n
+    fig, axs = plt.subplots(len(var_to_plot), ncol, figsize=(2.3 * 2 * n, 9), dpi=100,
+                            gridspec_kw={'width_ratios': ratios})
+
+    def draw(col, preds, tag, j_var, i):
+        ax = axs[i, col]
+        pre, spa, ory, int_, wea = preds[tag]
+        day   = wea[sample_loc, :, 0]
+        ory_v = ory[sample_loc, :, j_var]; obs_v = spa[sample_loc, :, j_var]; pre_v = pre[sample_loc, :, j_var]
+        m_ory = (day >= 0) & (ory_v >= 0); m_obs = (day >= 0) & (obs_v >= 0)
+        ax.plot(day[m_ory],    ory_v[m_ory], color='gray', lw=1)
+        ax.scatter(day[m_obs], obs_v[m_obs], s=8, color='black')
+        ax.plot(day[m_ory],    pre_v[m_ory], color='red', lw=1)
+        ax.set_ylim(bottom=0, top=max_vals[i]); ax.tick_params(labelsize=7)
+
+    for i, vname in enumerate(var_to_plot):
+        j_var = OBS_NAME.index(vname)
+        for j, (tag, *_) in enumerate(models):
+            draw(j,           pred_tra, tag, j_var, i)   # train columns 0..n-1
+            draw(n + 1 + j,   pred_tes, tag, j_var, i)   # test columns n+1..ncol-1
+            if i == 0:
+                axs[0, j].set_title(tag, fontsize=9)
+                axs[0, n + 1 + j].set_title(tag, fontsize=9)
+            if j == 0:
+                axs[i, 0].set_ylabel(VAR_FULLNAME.get(vname, vname), fontsize=9)
+        axs[i, spacer].axis('off')                       # blank middle column
+
+    plt.tight_layout(rect=[0, 0, 1, 0.94])               # leave room for the group headers
+    cx = lambda c0, c1: (axs[0, c0].get_position().x0 + axs[0, c1].get_position().x1) / 2
+    fig.text(cx(0, n - 1),        0.975, "Training set", ha='center', va='top',
+             fontsize=14, fontweight='bold')
+    fig.text(cx(n + 1, ncol - 1), 0.975, "Test set",     ha='center', va='top',
+             fontsize=14, fontweight='bold')
+    plt.show()
+
+
+def rmse_table(pretrained_predictions, tags=None):
+    """Pandas DataFrame of per-variable RMSE for every configuration (filtered to `tags` if given)."""
     rows = []
     for tag, *_ in MODEL_DIRS:
+        if tags is not None and tag not in tags:
+            continue
         pre, spa, *_ = pretrained_predictions[tag]
         rows.append({'model': tag, **rmse_per_var(pre, spa)})
     df = pd.DataFrame(rows).set_index('model').round(3)
-    print("=== Test-set RMSE (lower is better) ===")
+    print("=== RMSE (lower is better) ===")
+    print(df)
+    return df
+
+
+def rmse_train_test_table(pred_tra, pred_tes, tags=None):
+    """Per-variable RMSE on train vs test (models as columns) - exposes over-fitting.
+
+    For each variable the 'train' and 'test' rows sit next to each other, so the flip
+    is obvious: LSTM has the lowest train RMSE but the highest test RMSE.
+    """
+    var_order  = ['PAI', 'WLV', 'WST', 'WSO', 'WAGT', 'WRR14']
+    var_labels = [VAR_FULLNAME.get(v, v) for v in var_order]
+    models = [m[0] for m in MODEL_DIRS if tags is None or m[0] in tags]
+    idx = pd.MultiIndex.from_product([var_labels, ['train', 'test']],
+                                     names=['variable', 'split'])
+    df = pd.DataFrame(index=idx, columns=models, dtype=float)
+    for tag in models:
+        r_tra = rmse_per_var(pred_tra[tag][0], pred_tra[tag][1])
+        r_tes = rmse_per_var(pred_tes[tag][0], pred_tes[tag][1])
+        for v, lab in zip(var_order, var_labels):
+            df.loc[(lab, 'train'), tag] = r_tra[v]
+            df.loc[(lab, 'test'),  tag] = r_tes[v]
+    df = df.round(2)
+    print("=== RMSE per variable: train vs test (lower is better) ===")
+    print("Watch the flip: LSTM has the lowest *train* RMSE but the highest *test* RMSE - over-fitting.")
     print(df)
     return df
 
@@ -467,7 +550,7 @@ def make_evolution_gif(lstm_snaps, dcgm_snaps, gif_path='figure/training_evoluti
                 ax.set_ylim(bottom=0, top=max_vals[col])
                 ax.tick_params(labelsize=7)
                 if row == 0:
-                    ax.set_title(vname.replace('WRR14', 'Yield'), fontsize=10)
+                    ax.set_title(VAR_FULLNAME.get(vname, vname), fontsize=10)
                     ax.set_xticklabels([])
                 else:
                     ax.set_xlabel('DOY', fontsize=8)
