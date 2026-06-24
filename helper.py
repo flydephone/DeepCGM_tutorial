@@ -506,9 +506,9 @@ def hands_on_training(tra_loader, tes_loader, epochs=20, lr=0.1, seed=0):
 
 
 def hands_on_training_lstm(tra_loader, tes_loader, epochs=100, lr=0.005, seed=0):
-    """Train a NaiveLSTM from scratch so students can use *their own* model in Task 1.
+    """Train a LSTM from scratch so students can use *their own* model in Task 1.
 
-    Mirrors `hands_on_training` but instantiates a NaiveLSTM (no input_mask, no
+    Mirrors `hands_on_training` but instantiates a LSTM (no input_mask, no
     convergence_loss) and uses the LSTM-friendly learning rate (lr=0.005,
     matching train.py).  Default is 100 epochs - enough to reproduce the
     'fits sparse points but wiggles between them' behaviour from the paper.
@@ -518,7 +518,7 @@ def hands_on_training_lstm(tra_loader, tes_loader, epochs=100, lr=0.005, seed=0)
     utils.setup_seed(seed)
     model = NaiveLSTM().to(device)
 
-    print(f"Configuration : NaiveLSTM (no mass conservation, no input mask, no convergence loss)")
+    print(f"Configuration : LSTM (no mass conservation, no input mask, no convergence loss)")
     print(f"Device        : {device}  ({'GPU' if str(device).startswith('cuda') else 'CPU'})")
     print(f"Epochs        : {epochs}")
     print(f"Learning rate : {lr}")
@@ -533,7 +533,7 @@ def hands_on_training_lstm(tra_loader, tes_loader, epochs=100, lr=0.005, seed=0)
     per_epoch = t_elapsed / epochs
 
     print()
-    print(f"=== Training summary: NaiveLSTM, {epochs} epochs, lr={lr}, {device} ===")
+    print(f"=== Training summary: LSTM, {epochs} epochs, lr={lr}, {device} ===")
     print(f"Wall time for {epochs} epochs : {t_elapsed:>7.1f} s")
     print(f"Per epoch                  : {per_epoch*1000:>7.0f} ms")
     return model, log
